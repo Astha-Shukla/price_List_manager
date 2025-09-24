@@ -1,0 +1,148 @@
+/* ------------------- Global App Styling ------------------- */
+QWidget {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 14px;
+    color: #3c4043;
+    background-color: #f0f2f5;
+}
+
+/* ------------------- Main Container and Scroll Area ------------------- */
+#main_container, #scroll_area {
+    background-color: #f0f2f5;
+    border: none;
+}
+
+#scroll_area {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin: 10px;
+}
+
+/* ------------------- Labels and Input Fields ------------------- */
+QLabel {
+    font-weight: 600;
+}
+
+QLineEdit {
+    padding: 8px;
+    border: 1px solid #b0b0b0;
+    border-radius: 6px;
+    background-color: #ffffff;
+}
+
+QLineEdit:focus {
+    border: 1px solid #4a90e2;
+}
+
+/* ------------------- General Button Styling ------------------- */
+QPushButton {
+    padding: 10px 15px;
+    border-radius: 8px;
+    background-color: #e8eaf6;
+    border: none;
+    font-weight: 500;
+}
+
+QPushButton:hover {
+    background-color: #d1d9f6;
+}
+
+QPushButton:pressed {
+    background-color: #c0c8e6;
+}
+
+/* ------------------- Top Toolbar Buttons ------------------- */
+#toolbar_widget QPushButton {
+    background-color: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #555;
+    text-align: center;
+}
+
+#toolbar_widget QPushButton:hover {
+    background-color: #e9ecef;
+    border-color: #d0d0d0;
+}
+
+/* ------------------- Special Action Buttons ------------------- */
+#save_btn {
+    background-color: #4a90e2;
+    color: white;
+    font-weight: bold;
+}
+
+#save_btn:hover {
+    background-color: #357abd;
+}
+
+#add_cloth_btn {
+    background-color: #28a745;
+    color: white;
+    font-weight: bold;
+}
+
+#add_cloth_btn:hover {
+    background-color: #218838;
+}
+
+#add_type_btn, #add_remove_btn {
+    background-color: #e0e0e0;
+    font-weight: bold;
+}
+
+#add_type_btn:hover, #add_remove_btn:hover {
+    background-color: #c0c0c0;
+}
+
+/* ------------------- Cloth/Type Widgets ------------------- */
+.ClothWidget, .TypeWidget {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+/* ------------------- Table Styling ------------------- */
+QTableWidget {
+    background-color: #ffffff;
+    border: 1px solid #d0d0d0;
+    border-radius: 8px;
+    padding: 6px;
+    gridline-color: #e0e0e0;
+}
+
+QHeaderView::section {
+    background-color: #f8f9fa;
+    padding: 8px;
+    border: 1px solid #e0e0e0;
+    font-weight: bold;
+    border-radius: 6px;
+}
+
+/* ------------------- Collapsible Tool Buttons ------------------- */
+QToolButton {
+    background: transparent;
+    border: none;
+    padding: 5px;
+}
+
+QToolButton:hover {
+    background-color: #e0e0e0;
+    border-radius: 4px;
+}
+
+/* Specific styling for delete button to make it more noticeable */
+QToolButton#delete_btn {
+    background: transparent;
+    border: none;
+    color: #dc3545;
+    font-size: 18px;
+}
+
+QToolButton#delete_btn:hover {
+    background-color: #f8d7da;
+}
