@@ -13,7 +13,7 @@ class TypeWidget(QWidget):
     def __init__(self, sizes, parent=None):
         super().__init__(parent)
         self.sizes = list(sizes) 
-        self.base_col_width = 120  
+        self.base_col_width = 60  
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
@@ -105,9 +105,9 @@ class TypeWidget(QWidget):
             header.setSectionResizeMode(QHeaderView.Stretch)
         else:
             header.setSectionResizeMode(QHeaderView.Fixed)
-            for col in range(ncols):
-                self.table.setColumnWidth(col, self.base_col_width)
-            self.table.setMinimumWidth(total_req)
+        for col in range(ncols):
+            self.table.setColumnWidth(col, self.base_col_width)
+        self.table.setMinimumWidth(total_req)
 
     def add_size(self):
         new_size = (max(self.sizes) + 2) if self.sizes else 20
@@ -142,9 +142,10 @@ class TypeWidget(QWidget):
 
 
 class ClothWidget(QWidget):
-    def __init__(self, sizes, parent=None):
+    def __init__(self, sizes, parent=None, toolbar_callback=None):
         super().__init__(parent)
         self.sizes = sizes
+        self.toolbar_callback = toolbar_callback # Store the callback
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setSpacing(10)
@@ -162,7 +163,8 @@ class ClothWidget(QWidget):
 
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("Cloth name")
-        self.name_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        #self.name_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.name_edit.setFixedWidth(360) 
 
         self.add_type_btn = QPushButton("✚ Add Type")
         self.add_type_btn.setObjectName("add_type_btn")
@@ -198,11 +200,17 @@ class ClothWidget(QWidget):
         self.content_widget.setVisible(expanded)
 
     def add_type_table(self):
+        print("Add Type button clicked.")
         type_widget = TypeWidget(self.sizes, parent=self)
         self.type_layout.addWidget(type_widget)
         if not self.toggle_btn.isChecked():
             self.toggle_btn.setChecked(True)
             self.toggle_types()
+        if self.toolbar_callback:
+            print("Disabling toolbar via callback...")
+            self.toolbar_callback(False)
+            # You'll also need to re-enable undo/save from here
+            # This can get messy, so using signals is a better approach
 
     def delete_self(self):
         self.setParent(None)
@@ -217,12 +225,14 @@ class PriceListManager(QWidget):
         self.setLayout(self.main_layout)
         self.main_layout.addWidget(self.main_toolbar())
 
+        # Connect the exit button's clicked signal to the window's close method
+        self.buttons['exit_btn'].clicked.connect(self.close)
+
         name_row = QHBoxLayout()
         self.price_list_label = QLabel("Price List Name:")
         self.price_list_input = QLineEdit()
         self.price_list_input.setPlaceholderText("e.g. Summer 2026")
-        self.price_list_label.setFixedWidth(120)
-        self.price_list_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.price_list_input.setFixedWidth(800)         
 
         self.add_cloth_btn = QPushButton("✚ Add Cloth")
         self.add_cloth_btn.setObjectName("add_cloth_btn")
@@ -230,6 +240,7 @@ class PriceListManager(QWidget):
         name_row.addWidget(self.price_list_label)
         name_row.addWidget(self.price_list_input)
         name_row.addWidget(self.add_cloth_btn)
+        name_row.addStretch(1)
         self.main_layout.addLayout(name_row)
 
         self.scroll_area = QScrollArea()
@@ -242,24 +253,35 @@ class PriceListManager(QWidget):
         self.main_layout.addWidget(self.scroll_area)
 
         btn_layout = QHBoxLayout()
-        #self.add_cloth_btn = QPushButton("✚ Add Cloth")
-        #self.add_cloth_btn.setObjectName("add_cloth_btn")
-        self.undo_btn = QPushButton("↶ Undo")
-        self.undo_btn.setObjectName("action_btn")
-        self.save_btn = QPushButton("💾 Save")
+        self.undo_btn = QPushButton("↶\nUndo")
+        self.undo_btn.setObjectName("undo_btn")
+        self.save_btn = QPushButton("💾\nSave")
         self.save_btn.setObjectName("save_btn")
-        #btn_layout.addWidget(self.add_cloth_btn)
-        btn_layout.addStretch()
+        for btn in (self.undo_btn, self.save_btn):
+            btn.setFixedSize(120, 60)
+            
         btn_layout.addWidget(self.undo_btn)
         btn_layout.addWidget(self.save_btn)
+        btn_layout.addStretch()
         self.main_layout.addLayout(btn_layout)
         self.setLayout(self.main_layout)
-        #self.add_cloth_btn.clicked.connect(self.add_cloth)
+
         self.sizes = [20, 22, 24, 26, 28, 30]
+        self.save_btn.clicked.connect(self.save_and_re_enable)
+
+    def save_and_re_enable(self):
+        print("Save button clicked.")
+        self.set_toolbar_enabled(True)
+        print("Toolbar re-enabled.")
 
     def add_cloth(self):
-        cloth = ClothWidget(self.sizes, parent=self)
+        print("Add Cloth button clicked.")
+        cloth = ClothWidget(self.sizes, parent=self, toolbar_callback=self.set_toolbar_enabled)
         self.cloth_layout.insertWidget(self.cloth_layout.count() - 1, cloth)
+        self.set_toolbar_enabled(False) 
+        print("Toolbar disabled.")
+        self.undo_btn.setEnabled(True)
+        self.save_btn.setEnabled(True)
 
     def create_btn(self, text, shortcut=None):
         btn = QPushButton(text)
@@ -307,6 +329,10 @@ class PriceListManager(QWidget):
         button_layout.addLayout(right_layout)
         button_group.setLayout(button_layout)
         return button_group
+    
+    def set_toolbar_enabled(self, state):
+        for button in self.buttons.values():
+            button.setEnabled(state)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

@@ -68,15 +68,35 @@ QPushButton:pressed {
 }
 
 /* ------------------- Special Action Buttons ------------------- */
+
+#undo_btn {
+    background-color: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #555;
+    text-align: center;
+}
+
+#undo_btn:hover {
+    background-color: #e9ecef;
+    border-color: #d0d0d0;
+}
+
 #save_btn {
     background-color: #4a90e2;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
     color: white;
-    font-weight: bold;
+    text-align: center;
 }
 
 #save_btn:hover {
-    background-color: #357abd;
+    background-color: #357abd;;
 }
+
 
 #add_cloth_btn {
     background-color: #28a745;
