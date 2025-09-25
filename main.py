@@ -2,23 +2,24 @@ import sys
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QScrollArea,
-    QGridLayout, QSizePolicy, QTableWidgetItem,
-    QToolButton, QHeaderView, QTableWidget
+    QSizePolicy, QTableWidgetItem, 
+    QToolButton, QHeaderView, QTableWidget,
+    QInputDialog, QMessageBox
 )
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 
 class TypeWidget(QWidget):
+    modification_started = pyqtSignal()
 
     def __init__(self, sizes, parent=None):
         super().__init__(parent)
         self.sizes = list(sizes) 
-        self.base_col_width = 60  
+        self.base_col_width = 60 
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
 
-        # Top row: Type name + controls
         top_row = QHBoxLayout()
         top_row.setSpacing(6)
 
@@ -30,6 +31,7 @@ class TypeWidget(QWidget):
 
         self.type_edit = QLineEdit()
         self.type_edit.setPlaceholderText("Type Name")
+        self.type_edit.textChanged.connect(self.modification_started.emit) # Emit signal on text change
 
         self.delete_btn = QToolButton()
         self.delete_btn.setIcon(QIcon("media/delete.png"))
@@ -41,7 +43,6 @@ class TypeWidget(QWidget):
         top_row.addWidget(self.delete_btn)
         layout.addLayout(top_row)
 
-        # --- Collapsible area (table)
         self.content_widget = QWidget()
         content_layout = QVBoxLayout(self.content_widget)
         content_layout.setContentsMargins(20, 0, 0, 0)
@@ -54,12 +55,12 @@ class TypeWidget(QWidget):
         self.table.verticalHeader().setDefaultSectionSize(30)
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.table.setFixedHeight(self.table.verticalHeader().length() + self.table.horizontalHeader().height() + self.table.frameWidth() * 2)
+        self.table.itemChanged.connect(lambda: self.modification_started.emit()) # Emit signal on cell change
 
         for col, size in enumerate(self.sizes):
             size_item = QTableWidgetItem(str(size))
             size_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(0, col, size_item)
-
             rate_item = QTableWidgetItem("0.0")
             rate_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(1, col, rate_item)
@@ -87,7 +88,8 @@ class TypeWidget(QWidget):
 
         self.add_size_btn.clicked.connect(self.add_size)
         self.remove_size_btn.clicked.connect(self.remove_size)
-        QTimer.singleShot(0, self.adjust_column_sizes)
+        
+        self.modification_started.emit()
 
     def toggle_table(self):
         expanded = self.toggle_btn.isChecked()
@@ -98,9 +100,7 @@ class TypeWidget(QWidget):
         header = self.table.horizontalHeader()
         ncols = self.table.columnCount()
         total_req = ncols * self.base_col_width
-
         viewport_w = self.table.viewport().width()
-
         if total_req <= viewport_w:
             header.setSectionResizeMode(QHeaderView.Stretch)
         else:
@@ -110,6 +110,7 @@ class TypeWidget(QWidget):
         self.table.setMinimumWidth(total_req)
 
     def add_size(self):
+        self.modification_started.emit()
         new_size = (max(self.sizes) + 2) if self.sizes else 20
         self.sizes.append(new_size)
         col = self.table.columnCount()
@@ -125,6 +126,7 @@ class TypeWidget(QWidget):
     def remove_size(self):
         if not self.sizes:
             return
+        self.modification_started.emit()
         self.sizes.pop()
         last_col = self.table.columnCount() - 1
         if last_col >= 0:
@@ -140,18 +142,16 @@ class TypeWidget(QWidget):
         super().resizeEvent(e)
         QTimer.singleShot(0, self.adjust_column_sizes)
 
-
 class ClothWidget(QWidget):
-    def __init__(self, sizes, parent=None, toolbar_callback=None):
+    modification_started = pyqtSignal()
+
+    def __init__(self, sizes, parent=None):
         super().__init__(parent)
         self.sizes = sizes
-        self.toolbar_callback = toolbar_callback # Store the callback
-
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setSpacing(10)
         self.main_layout.setContentsMargins(6, 6, 6, 6)
 
-        # Top row (cloth name + add type + delete)
         top_layout = QHBoxLayout()
         top_layout.setSpacing(10)
 
@@ -163,8 +163,8 @@ class ClothWidget(QWidget):
 
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("Cloth name")
-        #self.name_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.name_edit.setFixedWidth(360) 
+        self.name_edit.textChanged.connect(self.modification_started.emit) # Emit signal on text change
 
         self.add_type_btn = QPushButton("✚ Add Type")
         self.add_type_btn.setObjectName("add_type_btn")
@@ -182,7 +182,6 @@ class ClothWidget(QWidget):
         top_layout.addWidget(self.delete_btn)
         self.main_layout.addLayout(top_layout)
         
-        # --- Collapsible container for types
         self.content_widget = QWidget()
         self.type_layout = QVBoxLayout(self.content_widget)
         self.type_layout.setContentsMargins(30, 0, 0, 0)
@@ -200,56 +199,122 @@ class ClothWidget(QWidget):
         self.content_widget.setVisible(expanded)
 
     def add_type_table(self):
-        print("Add Type button clicked.")
+        self.modification_started.emit()
         type_widget = TypeWidget(self.sizes, parent=self)
         self.type_layout.addWidget(type_widget)
+        type_widget.modification_started.connect(self.modification_started.emit) # Propagate the signal
         if not self.toggle_btn.isChecked():
             self.toggle_btn.setChecked(True)
             self.toggle_types()
-        if self.toolbar_callback:
-            print("Disabling toolbar via callback...")
-            self.toolbar_callback(False)
-            # You'll also need to re-enable undo/save from here
-            # This can get messy, so using signals is a better approach
 
     def delete_self(self):
         self.setParent(None)
         self.deleteLater()
+
+class PriceListWidget(QWidget):
+    selected = pyqtSignal(QWidget)
+    modification_started = pyqtSignal()
+
+    def __init__(self, sizes, parent=None):
+        super().__init__(parent)
+        self.sizes = sizes
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(6, 6, 6, 6)
+        self.main_layout.setSpacing(10)
+
+        top_row = QHBoxLayout()
+        top_row.setSpacing(10)
+        
+        self.toggle_btn = QToolButton()
+        self.toggle_btn.setArrowType(Qt.RightArrow)
+        self.toggle_btn.setCheckable(True)
+        self.toggle_btn.setChecked(False)
+        self.toggle_btn.clicked.connect(self.toggle_content)
+
+        self.name_edit = QLineEdit()
+        self.name_edit.setPlaceholderText("Price List name")
+        self.name_edit.setFixedWidth(800)
+        self.name_edit.setObjectName("price_list_name_edit")
+        self.name_edit.setCursor(Qt.PointingHandCursor)
+        self.name_edit.setReadOnly(False) 
+        self.name_edit.textChanged.connect(self.modification_started.emit) 
+        self.name_edit.mousePressEvent = self.on_select
+        
+        self.add_cloth_btn = QPushButton("✚ Add Cloth")
+        self.add_cloth_btn.setObjectName("add_cloth_btn")
+        self.add_cloth_btn.clicked.connect(self.add_cloth_widget)
+        self.add_cloth_btn.setFixedSize(120, 30)
+        
+        top_row.addWidget(self.toggle_btn)
+        top_row.addWidget(self.name_edit)
+        top_row.addWidget(self.add_cloth_btn)
+        top_row.addStretch()
+        
+        self.main_layout.addLayout(top_row)
+        
+        self.content_widget = QWidget()
+        self.cloth_layout = QVBoxLayout(self.content_widget)
+        self.cloth_layout.setContentsMargins(30, 0, 0, 0)
+        self.cloth_layout.setSpacing(6)
+        
+        self.main_layout.addWidget(self.content_widget)
+        
+        self.toggle_btn.setChecked(True)
+        self.toggle_btn.setArrowType(Qt.DownArrow)
+        self.content_widget.setVisible(True)
+
+    def on_select(self, event):
+        self.selected.emit(self)
+        QLineEdit.mousePressEvent(self.name_edit, event)
+
+    def set_selected(self, state):
+        if state:
+            self.name_edit.setStyleSheet("border: 2px solid #5d81d2;")
+        else:
+            self.name_edit.setStyleSheet("")
+
+    def toggle_content(self):
+        expanded = self.toggle_btn.isChecked()
+        self.toggle_btn.setArrowType(Qt.DownArrow if expanded else Qt.RightArrow)
+        self.content_widget.setVisible(expanded)
+        
+    def add_cloth_widget(self):
+        self.modification_started.emit()
+        cloth_widget = ClothWidget(self.sizes, parent=self)
+        self.cloth_layout.addWidget(cloth_widget)
+        cloth_widget.modification_started.connect(self.modification_started.emit) # Propagate the signal up
+        if not self.toggle_btn.isChecked():
+            self.toggle_btn.setChecked(True)
+            self.toggle_content()
+
+    def delete_self(self):
+        reply = QMessageBox.question(self, 'Delete Price List', 
+                                     f"Are you sure you want to delete '{self.name_edit.text()}'?",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.setParent(None)
+            self.deleteLater()
 
 class PriceListManager(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ERP — Price List Manager")
         self.setMinimumSize(1000, 600)
-        self.main_layout = QVBoxLayout()
+        self.main_layout = QVBoxLayout(self)
         self.setLayout(self.main_layout)
+
         self.main_layout.addWidget(self.main_toolbar())
-
-        # Connect the exit button's clicked signal to the window's close method
+        self.buttons['new_btn'].clicked.connect(self.add_new_price_list)
+        self.buttons['delete_btn'].clicked.connect(self.delete_selected_price_list)
         self.buttons['exit_btn'].clicked.connect(self.close)
-
-        name_row = QHBoxLayout()
-        self.price_list_label = QLabel("Price List Name:")
-        self.price_list_input = QLineEdit()
-        self.price_list_input.setPlaceholderText("e.g. Summer 2026")
-        self.price_list_input.setFixedWidth(800)         
-
-        self.add_cloth_btn = QPushButton("✚ Add Cloth")
-        self.add_cloth_btn.setObjectName("add_cloth_btn")
-        self.add_cloth_btn.clicked.connect(self.add_cloth)
-        name_row.addWidget(self.price_list_label)
-        name_row.addWidget(self.price_list_input)
-        name_row.addWidget(self.add_cloth_btn)
-        name_row.addStretch(1)
-        self.main_layout.addLayout(name_row)
-
+        
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setObjectName("scroll_area")
-        self.cloth_container = QWidget()
-        self.cloth_layout = QVBoxLayout(self.cloth_container)
-        self.cloth_layout.addStretch()
-        self.scroll_area.setWidget(self.cloth_container)
+        self.price_list_container = QWidget()
+        self.price_list_layout = QVBoxLayout(self.price_list_container)
+        self.price_list_layout.setContentsMargins(0, 0, 0, 0)
+        self.price_list_layout.addStretch()
+        self.scroll_area.setWidget(self.price_list_container)
         self.main_layout.addWidget(self.scroll_area)
 
         btn_layout = QHBoxLayout()
@@ -264,24 +329,63 @@ class PriceListManager(QWidget):
         btn_layout.addWidget(self.save_btn)
         btn_layout.addStretch()
         self.main_layout.addLayout(btn_layout)
-        self.setLayout(self.main_layout)
 
         self.sizes = [20, 22, 24, 26, 28, 30]
-        self.save_btn.clicked.connect(self.save_and_re_enable)
 
-    def save_and_re_enable(self):
-        print("Save button clicked.")
-        self.set_toolbar_enabled(True)
-        print("Toolbar re-enabled.")
+        self.current_price_list = None
+        self.save_btn.clicked.connect(self.exit_edit_mode)
+        self.undo_btn.clicked.connect(self.exit_edit_mode)
+        self.set_toolbar_state(True)
 
-    def add_cloth(self):
-        print("Add Cloth button clicked.")
-        cloth = ClothWidget(self.sizes, parent=self, toolbar_callback=self.set_toolbar_enabled)
-        self.cloth_layout.insertWidget(self.cloth_layout.count() - 1, cloth)
-        self.set_toolbar_enabled(False) 
-        print("Toolbar disabled.")
+    def add_new_price_list(self):
+        price_list_widget = PriceListWidget(self.sizes, parent=self)
+        self.price_list_layout.insertWidget(self.price_list_layout.count() - 1, price_list_widget)
+        price_list_widget.selected.connect(self.select_price_list)
+        price_list_widget.modification_started.connect(self.enter_edit_mode)
+        self.select_price_list(price_list_widget)
+        self.enter_edit_mode()
+
+    def select_price_list(self, price_list_widget):
+        if self.current_price_list:
+            self.current_price_list.set_selected(False)
+            self.current_price_list.add_cloth_btn.hide()
+        
+        self.current_price_list = price_list_widget
+        self.current_price_list.set_selected(True)
+        self.current_price_list.add_cloth_btn.show()
+
+        # Connect signals of existing child widgets when a price list is selected
+        self.current_price_list.modification_started.connect(self.enter_edit_mode)
+        for i in range(self.current_price_list.cloth_layout.count()):
+            cloth_widget = self.current_price_list.cloth_layout.itemAt(i).widget()
+            if cloth_widget:
+                cloth_widget.modification_started.connect(self.enter_edit_mode)
+                for j in range(cloth_widget.type_layout.count()):
+                    type_widget = cloth_widget.type_layout.itemAt(j).widget()
+                    if type_widget:
+                        type_widget.modification_started.connect(self.enter_edit_mode)
+    
+    def delete_selected_price_list(self):
+        if self.current_price_list:
+            reply = QMessageBox.question(self, 'Delete Price List', 
+                                         f"Are you sure you want to delete '{self.current_price_list.name_edit.text()}'?",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                self.current_price_list.deleteLater()
+                self.current_price_list = None
+                self.exit_edit_mode()
+
+    def set_toolbar_state(self, enabled):
+        for name, btn in self.buttons.items():
+            btn.setEnabled(enabled)
+            
+    def enter_edit_mode(self):
+        self.set_toolbar_state(False)
         self.undo_btn.setEnabled(True)
         self.save_btn.setEnabled(True)
+
+    def exit_edit_mode(self):
+        self.set_toolbar_state(True)
 
     def create_btn(self, text, shortcut=None):
         btn = QPushButton(text)
@@ -301,16 +405,16 @@ class PriceListManager(QWidget):
             layout.setContentsMargins(0, 0, 0, 0)
 
         buttons_config = [
-            ("📄\nNew-Ctrl+N", "Ctrl+N", left_layout, "new_btn"),
-            ("📝\nModify-Ctrl+O", "Ctrl+O", left_layout, "modify_btn"),
-            ("🗑\nDelete-Ctrl+D", "Ctrl+D", left_layout, "delete_btn"),
-            ("🔍\nSearch-Ctrl+F", "Ctrl+F", left_layout, "search_btn"),
-            ("🖨\nPrint-Ctrl+P", "Ctrl+P", left_layout, "print_btn"),
+            ("📄\nNew", "Ctrl+N", left_layout, "new_btn"),
+            ("📝\nModify", "Ctrl+O", left_layout, "modify_btn"),
+            ("🗑\nDelete", "Ctrl+D", left_layout, "delete_btn"),
+            ("🔍\nSearch", "Ctrl+F", left_layout, "search_btn"),
+            ("🖨\nPrint", "Ctrl+P", left_layout, "print_btn"),
             ("▲\nTop", None, mid_layout, "top_btn"),
             ("◀\nBack", "Alt+Left", mid_layout, "back_btn"),
             ("▶\nNext", "Alt+Right", mid_layout, "next_btn"),
             ("▼\nLast", None, mid_layout, "last_btn"),
-            ("↩\nExit-Alt+F4", "Alt+F4", right_layout, "exit_btn"),
+            ("↩\nExit", "Alt+F4", right_layout, "exit_btn"),
             ("❔\nTUTOR", None, right_layout, "tutor_btn"),
         ]
 
@@ -329,10 +433,6 @@ class PriceListManager(QWidget):
         button_layout.addLayout(right_layout)
         button_group.setLayout(button_layout)
         return button_group
-    
-    def set_toolbar_enabled(self, state):
-        for button in self.buttons.values():
-            button.setEnabled(state)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
