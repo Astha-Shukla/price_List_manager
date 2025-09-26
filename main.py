@@ -24,6 +24,10 @@ class TypeWidget(QWidget):
         top_row = QHBoxLayout()
         top_row.setSpacing(6)
 
+        # --- NEW: Centering Group ---
+        center_group = QHBoxLayout()
+        center_group.setSpacing(6)
+
         self.toggle_btn = QToolButton()
         self.toggle_btn.setArrowType(Qt.RightArrow)
         self.toggle_btn.setCheckable(True)
@@ -38,10 +42,15 @@ class TypeWidget(QWidget):
         self.delete_btn.setIcon(QIcon("media/delete.png"))
         self.delete_btn.clicked.connect(self.delete_self)
 
-        top_row.addWidget(self.toggle_btn) 
-        top_row.addWidget(self.type_edit)
-        top_row.addStretch()
-        top_row.addWidget(self.delete_btn)
+        # Add widgets to the center group
+        center_group.addWidget(self.toggle_btn) 
+        center_group.addWidget(self.type_edit)
+        center_group.addWidget(self.delete_btn)
+        
+        # Configure the main top row to center the group
+        top_row.addStretch() # Stretch 1
+        top_row.addLayout(center_group)
+        top_row.addStretch() # Stretch 2
         layout.addLayout(top_row)
 
         self.content_widget = QWidget()
@@ -156,6 +165,10 @@ class ClothWidget(QWidget):
         top_layout = QHBoxLayout()
         top_layout.setSpacing(10)
 
+        # --- NEW: Centering Group ---
+        center_group = QHBoxLayout()
+        center_group.setSpacing(10)
+
         self.toggle_btn = QToolButton()
         self.toggle_btn.setArrowType(Qt.RightArrow)
         self.toggle_btn.setCheckable(True)
@@ -176,11 +189,17 @@ class ClothWidget(QWidget):
         self.delete_btn.setObjectName("delete_btn")
         self.delete_btn.clicked.connect(self.delete_self)
 
-        top_layout.addWidget(self.toggle_btn)
-        top_layout.addWidget(self.name_edit)
-        top_layout.addWidget(self.add_type_btn)
+        # Add widgets to the center group
+        center_group.addWidget(self.toggle_btn)
+        center_group.addWidget(self.name_edit)
+        center_group.addWidget(self.add_type_btn)
+        center_group.addWidget(self.delete_btn) # The delete button is now part of the centered group
+
+        # Configure the main top row to center the group
         top_layout.addStretch()
-        top_layout.addWidget(self.delete_btn)
+        top_layout.addLayout(center_group)
+        top_layout.addStretch()
+
         self.main_layout.addLayout(top_layout)
         
         self.content_widget = QWidget()
@@ -225,6 +244,10 @@ class PriceListWidget(QWidget):
 
         top_row = QHBoxLayout()
         top_row.setSpacing(10)
+
+        # --- NEW: Alignment Layout ---
+        center_group = QHBoxLayout()
+        center_group.setSpacing(10)
         
         self.toggle_btn = QToolButton()
         self.toggle_btn.setArrowType(Qt.RightArrow)
@@ -234,7 +257,7 @@ class PriceListWidget(QWidget):
 
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("Price List name")
-        self.name_edit.setFixedWidth(800)
+        self.name_edit.setFixedWidth(600)
         self.name_edit.setObjectName("price_list_name_edit")
         self.name_edit.setCursor(Qt.PointingHandCursor)
         self.name_edit.setReadOnly(False) 
@@ -246,10 +269,15 @@ class PriceListWidget(QWidget):
         self.add_cloth_btn.clicked.connect(self.add_cloth_widget)
         self.add_cloth_btn.setFixedSize(120, 30)
         
-        top_row.addWidget(self.toggle_btn)
-        top_row.addWidget(self.name_edit)
-        top_row.addWidget(self.add_cloth_btn)
-        top_row.addStretch()
+        # Add widgets to the center group
+        center_group.addWidget(self.toggle_btn)
+        center_group.addWidget(self.name_edit)
+        center_group.addWidget(self.add_cloth_btn)
+        
+        # Configure the main top row to center the group
+        top_row.addStretch()  # Stretch 1: Pushes content to the right
+        top_row.addLayout(center_group)
+        top_row.addStretch()  # Stretch 2: Pushes content to the left
         
         self.main_layout.addLayout(top_row)
         
