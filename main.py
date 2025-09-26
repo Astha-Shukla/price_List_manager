@@ -6,8 +6,9 @@ from PyQt5.QtWidgets import (
     QToolButton, QHeaderView, QTableWidget,
     QInputDialog, QMessageBox
 )
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QPainter
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog, QPrintDialog
 
 class TypeWidget(QWidget):
     modification_started = pyqtSignal()
@@ -305,6 +306,7 @@ class PriceListManager(QWidget):
 
         self.main_layout.addWidget(self.main_toolbar())
         self.buttons['new_btn'].clicked.connect(self.add_new_price_list)
+        self.buttons['print_btn'].clicked.connect(self.show_print_preview)
         self.buttons['delete_btn'].clicked.connect(self.delete_selected_price_list)
         self.buttons['exit_btn'].clicked.connect(self.close)
         
@@ -336,6 +338,53 @@ class PriceListManager(QWidget):
         self.save_btn.clicked.connect(self.exit_edit_mode)
         self.undo_btn.clicked.connect(self.exit_edit_mode)
         self.set_toolbar_state(True)
+
+    def show_print_preview(self):
+        printer = QPrinter()
+        preview_dialog = QPrintPreviewDialog(printer, self)
+        preview_dialog.resize(1200, 800) 
+        preview_dialog.paintRequested.connect(self.paint_price_lists)
+        preview_dialog.exec_()
+
+    def paint_price_lists(self, printer):
+        painter = QPainter(printer)
+        
+        page_rect = printer.pageRect(QPrinter.Millimeter) 
+        
+        printable_width_mm = page_rect.width()
+        
+        y_offset = 10 
+        spacing_mm = 5 
+
+        price_list_widgets = []
+        for i in range(self.price_list_layout.count() - 1):
+            widget = self.price_list_layout.itemAt(i).widget()
+            if isinstance(widget, PriceListWidget):
+                price_list_widgets.append(widget)
+
+        max_widget_pixel_width = 0
+        for widget in price_list_widgets:
+            max_widget_pixel_width = max(max_widget_pixel_width, widget.width())
+        
+        scale_factor = printer.width() / max_widget_pixel_width if max_widget_pixel_width > 0 else 1.0
+        
+        if scale_factor > 1.0:
+            scale_factor = 1.0
+        
+        for widget in price_list_widgets:
+            widget_pixel_height = widget.sizeHint().height() 
+            scaled_widget_height = widget_pixel_height * scale_factor
+            
+            if y_offset + scaled_widget_height > printer.height(): 
+                printer.newPage()
+                y_offset = 10  
+                
+            painter.save()           
+            painter.translate(0, y_offset)            
+            painter.scale(scale_factor, scale_factor)            
+            widget.render(painter)             
+            painter.restore()
+            y_offset += scaled_widget_height + (spacing_mm * scale_factor)
 
     def add_new_price_list(self):
         price_list_widget = PriceListWidget(self.sizes, parent=self)
