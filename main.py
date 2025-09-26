@@ -6,8 +6,8 @@ from PyQt5.QtWidgets import (
     QToolButton, QHeaderView, QTableWidget,
     QInputDialog, QMessageBox
 )
-from PyQt5.QtGui import QIcon, QPainter
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+from PyQt5.QtGui import QIcon, QPainter, QFont
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QRect
 from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog, QPrintDialog
 
 class TypeWidget(QWidget):
@@ -346,45 +346,214 @@ class PriceListManager(QWidget):
         preview_dialog.paintRequested.connect(self.paint_price_lists)
         preview_dialog.exec_()
 
+    def to_roman(self, n):
+        """Converts an integer to a Roman numeral string."""
+        if not 0 < n < 40: # Limiting for practicality
+            return str(n)
+        
+        roman_map = {1: 'I', 4: 'IV', 5: 'V', 9: 'IX', 10: 'X'}
+        values = [10, 9, 5, 4, 1]
+        symbols = ['X', 'IX', 'V', 'IV', 'I']
+        result = ""
+        for i, value in enumerate(values):
+            while n >= value:
+                result += symbols[i]
+                n -= value
+        return result
+    
+    def draw_type_table(self, painter, type_widget, page_width, start_y, mm_to_units, line_height_mm, header_color):
+        
+        table = type_widget.table
+        col_count = table.columnCount()
+        row_count = table.rowCount()
+
+        if col_count == 0 or row_count == 0:
+            return start_y
+
+        col_width = page_width / (col_count + 1)
+        row_height = mm_to_units(line_height_mm)
+
+        current_y = start_y
+        
+        painter.save()
+        table_font = painter.font()
+        table_font.setPointSizeF(8)
+        table_font.setBold(False) 
+        table_font.setWeight(QFont.Normal) 
+        painter.setFont(table_font)
+        
+        painter.setBrush(header_color)
+        painter.drawRect(0, int(current_y), int(col_width), int(row_height * 2))
+        
+        painter.setPen(Qt.black)
+        
+        painter.drawText(QRect(0, current_y, int(col_width), row_height), 
+                         Qt.AlignCenter, "Size")
+        painter.drawText(QRect(0, current_y + row_height, int(col_width), row_height), 
+                         Qt.AlignCenter, "Rate")
+        
+        for col in range(col_count):
+
+            x_pos = col_width * (col + 1)
+            size_item = table.item(0, col)
+            text = size_item.text() if size_item else ""
+            
+            painter.setBrush(header_color)
+            painter.drawRect(int(x_pos), int(current_y), int(col_width), int(row_height))
+            
+            painter.drawText(QRect(int(x_pos), current_y, int(col_width), row_height), 
+                             Qt.AlignCenter, text)
+        
+        current_y += row_height
+        
+        for col in range(col_count):
+            x_pos = col_width * (col + 1)
+            rate_item = table.item(1, col)
+            text = rate_item.text() if rate_item else ""
+            
+            painter.setBrush(Qt.white)
+            painter.drawRect(int(x_pos), int(current_y), int(col_width), int(row_height))
+            
+            painter.drawText(QRect(int(x_pos), current_y, int(col_width), row_height), 
+                             Qt.AlignCenter, text)
+
+        current_y += row_height
+        
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(Qt.black)
+        
+        painter.drawRect(0, start_y, int(page_width), current_y - start_y)
+        
+        for col in range(col_count + 1):
+            x_pos = col_width * col
+            painter.drawLine(int(x_pos), start_y, int(x_pos), current_y)
+        
+        painter.drawLine(0, start_y + row_height, page_width, start_y + row_height)     
+        painter.restore()
+        return current_y
+
     def paint_price_lists(self, printer):
         painter = QPainter(printer)
         
-        page_rect = printer.pageRect(QPrinter.Millimeter) 
+        MARGIN_MM = 10
+        LINE_HEIGHT_MM = 7
+        TEXT_FONT_SIZE = 10
+        TABLE_HEADER_COLOR = Qt.lightGray
         
-        printable_width_mm = page_rect.width()
-        
-        y_offset = 10 
-        spacing_mm = 5 
+        def mm_to_units(mm):
+            return int(mm * printer.width() / printer.pageRect(QPrinter.Millimeter).width())
 
+        y_offset_units = mm_to_units(MARGIN_MM)
+        
+        painter.setFont(painter.font()) 
+        painter.font().setPointSizeF(TEXT_FONT_SIZE)
+        
         price_list_widgets = []
         for i in range(self.price_list_layout.count() - 1):
             widget = self.price_list_layout.itemAt(i).widget()
             if isinstance(widget, PriceListWidget):
                 price_list_widgets.append(widget)
 
-        max_widget_pixel_width = 0
-        for widget in price_list_widgets:
-            max_widget_pixel_width = max(max_widget_pixel_width, widget.width())
+        page_width = printer.width()
         
-        scale_factor = printer.width() / max_widget_pixel_width if max_widget_pixel_width > 0 else 1.0
-        
-        if scale_factor > 1.0:
-            scale_factor = 1.0
-        
-        for widget in price_list_widgets:
-            widget_pixel_height = widget.sizeHint().height() 
-            scaled_widget_height = widget_pixel_height * scale_factor
+        for pl_idx, pl_widget in enumerate(price_list_widgets):
+            pl_name = pl_widget.name_edit.text() or "Untitled Price List"
+            pl_label = f"PRICE LIST-({pl_idx + 1}) {pl_name}"
             
-            if y_offset + scaled_widget_height > printer.height(): 
+            if y_offset_units + mm_to_units(LINE_HEIGHT_MM * 2) > printer.height() - mm_to_units(MARGIN_MM):
                 printer.newPage()
-                y_offset = 10  
-                
-            painter.save()           
-            painter.translate(0, y_offset)            
-            painter.scale(scale_factor, scale_factor)            
-            widget.render(painter)             
+                y_offset_units = mm_to_units(MARGIN_MM)
+
+            pl_font = QFont(painter.font()) 
+            pl_font.setBold(True)
+            pl_font.setWeight(QFont.Black) 
+            pl_font.setPointSizeF(TEXT_FONT_SIZE * 1.2) 
+            painter.setFont(pl_font)
+            
+            pl_rect = painter.boundingRect(0, y_offset_units, page_width, mm_to_units(LINE_HEIGHT_MM * 1.5), 
+                                          Qt.AlignCenter, pl_label)
+            painter.drawText(pl_rect, Qt.AlignCenter, pl_label)
+            y_offset_units += pl_rect.height() + mm_to_units(LINE_HEIGHT_MM * 0.5)
             painter.restore()
-            y_offset += scaled_widget_height + (spacing_mm * scale_factor)
+
+            cloth_widgets = []
+            for i in range(pl_widget.cloth_layout.count()):
+                widget = pl_widget.cloth_layout.itemAt(i).widget()
+                if isinstance(widget, ClothWidget):
+                    cloth_widgets.append(widget)
+
+            for c_idx, c_widget in enumerate(cloth_widgets):
+                cloth_name = c_widget.name_edit.text() or "Untitled Cloth"
+                cloth_prefix = chr(65 + c_idx) # 'A'
+                cloth_label = f"[{cloth_prefix}. {cloth_name}]"
+
+                if y_offset_units + mm_to_units(LINE_HEIGHT_MM * 2) > printer.height() - mm_to_units(MARGIN_MM):
+                    printer.newPage()
+                    y_offset_units = mm_to_units(MARGIN_MM)
+                    
+                painter.save()
+                c_font = QFont(painter.font())
+                c_font.setBold(True)
+                c_font.setWeight(QFont.Black) 
+                c_font.setPointSizeF(TEXT_FONT_SIZE * 1.1) 
+                painter.setFont(c_font)
+                
+                left_indent = mm_to_units(20)
+                available_width = page_width - left_indent
+
+                c_rect = painter.boundingRect(left_indent, y_offset_units, available_width, mm_to_units(LINE_HEIGHT_MM), 
+                                              Qt.AlignLeft, cloth_label)
+                painter.drawText(c_rect, Qt.AlignLeft, cloth_label)
+                y_offset_units += c_rect.height() + mm_to_units(LINE_HEIGHT_MM * 0.3)
+                painter.restore()
+
+                type_widgets = []
+                for i in range(c_widget.type_layout.count()):
+                    widget = c_widget.type_layout.itemAt(i).widget()
+                    if isinstance(widget, TypeWidget):
+                        type_widgets.append(widget)
+
+                for t_idx, t_widget in enumerate(type_widgets):
+                    type_name = t_widget.type_edit.text() or "Untitled Type"
+                    type_label = f"{t_idx + 1}) {type_name}" 
+                    
+                    table_height_mm = LINE_HEIGHT_MM * 3 
+                    if y_offset_units + mm_to_units(LINE_HEIGHT_MM) + mm_to_units(table_height_mm) > printer.height() - mm_to_units(MARGIN_MM):
+                        printer.newPage()
+                        y_offset_units = mm_to_units(MARGIN_MM)
+
+                    painter.save()
+                    t_font = QFont(painter.font())
+                    t_font.setBold(True)
+                    t_font.setWeight(QFont.Black) 
+                    t_font.setPointSizeF(TEXT_FONT_SIZE * 1.0) 
+                    painter.setFont(t_font)
+                    
+                    
+                    left_indent = mm_to_units(25)
+                    available_width = page_width - left_indent
+                    
+                    t_rect = painter.boundingRect(left_indent, y_offset_units, available_width, mm_to_units(LINE_HEIGHT_MM), 
+                                                 Qt.AlignLeft, type_label)
+                    painter.drawText(t_rect, Qt.AlignLeft, type_label)
+                    y_offset_units += t_rect.height()
+                    painter.restore()
+                    
+                    y_offset_units += mm_to_units(LINE_HEIGHT_MM * 0.3)
+                    
+                    painter.save()
+                    table_indent = mm_to_units(25)
+                    table_width = page_width - table_indent - mm_to_units(MARGIN_MM) 
+                    painter.translate(table_indent, 0)
+                    
+                    y_offset_units = self.draw_type_table(
+                        painter, t_widget, table_width, y_offset_units, 
+                        mm_to_units, LINE_HEIGHT_MM, TABLE_HEADER_COLOR 
+                    )
+                    
+                    painter.restore() 
+                    
+                    y_offset_units += mm_to_units(LINE_HEIGHT_MM) 
 
     def add_new_price_list(self):
         price_list_widget = PriceListWidget(self.sizes, parent=self)
@@ -403,7 +572,6 @@ class PriceListManager(QWidget):
         self.current_price_list.set_selected(True)
         self.current_price_list.add_cloth_btn.show()
 
-        # Connect signals of existing child widgets when a price list is selected
         self.current_price_list.modification_started.connect(self.enter_edit_mode)
         for i in range(self.current_price_list.cloth_layout.count()):
             cloth_widget = self.current_price_list.cloth_layout.itemAt(i).widget()
