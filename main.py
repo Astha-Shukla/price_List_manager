@@ -456,9 +456,29 @@ class PriceListManager(QWidget):
         FIXED_HEADER_COL_MM = 15
         FIXED_DATA_COL_MM = 11.5
         
+        # --- FIX 1: Enforce Strict 14 Columns (1 Header + 13 Data Columns) ---
+        MAX_COLS_PER_LINE = 13 
+        
         def mm_to_units(mm):
             return int(mm * printer.width() / printer.pageRect(QPrinter.Millimeter).width())
 
+        # --- FIX 2: Reduce Indentation for Left Alignment ---
+        
+        # Standard left margin for the whole page
+        LEFT_PAGE_MARGIN_UNITS = mm_to_units(MARGIN_MM) 
+        
+        # Indent for the Cloth label
+        CLOTH_INDENT_MM = 5 
+        
+        # Indent for the Type label and the Table itself (Relative to the Page Margin)
+        TYPE_INDENT_MM = 10
+        TABLE_INDENT_MM = TYPE_INDENT_MM
+
+        # Calculate the required width for the 14-column content for centering the title
+        required_content_width_mm = FIXED_HEADER_COL_MM + (MAX_COLS_PER_LINE * FIXED_DATA_COL_MM)
+        required_content_width_units = mm_to_units(required_content_width_mm)
+        
+        # Set the initial Y offset (top margin)
         y_offset_units = mm_to_units(MARGIN_MM)
         
         painter.setFont(painter.font()) 
@@ -470,8 +490,7 @@ class PriceListManager(QWidget):
             if isinstance(widget, PriceListWidget):
                 price_list_widgets.append(widget)
 
-        page_width_units = printer.width() - mm_to_units(MARGIN_MM * 2) 
-        
+        # --- Draw Price List Title (Centered on the print area) ---
         for pl_idx, pl_widget in enumerate(price_list_widgets):
             pl_name = pl_widget.name_edit.text() or "Untitled Price List"
             pl_label = f"PRICE LIST-({pl_idx + 1}) {pl_name}"
@@ -486,7 +505,9 @@ class PriceListManager(QWidget):
             pl_font.setPointSizeF(TEXT_FONT_SIZE * 1.2) 
             painter.setFont(pl_font)
             
-            pl_rect = painter.boundingRect(mm_to_units(MARGIN_MM), y_offset_units, page_width_units, mm_to_units(LINE_HEIGHT_MM * 1.5), 
+            # The Price List label is centered on the entire page width
+            page_width_units = printer.width() - mm_to_units(MARGIN_MM * 2) 
+            pl_rect = painter.boundingRect(LEFT_PAGE_MARGIN_UNITS, y_offset_units, page_width_units, mm_to_units(LINE_HEIGHT_MM * 1.5), 
                                           Qt.AlignCenter, pl_label)
             painter.drawText(pl_rect, Qt.AlignCenter, pl_label)
             y_offset_units += pl_rect.height() + mm_to_units(LINE_HEIGHT_MM * 0.5)
@@ -498,9 +519,10 @@ class PriceListManager(QWidget):
                 if isinstance(widget, ClothWidget):
                     cloth_widgets.append(widget)
 
+            # --- Draw Cloth Label (Aligned with the reduced indent) ---
             for c_idx, c_widget in enumerate(cloth_widgets):
                 cloth_name = c_widget.name_edit.text() or "Untitled Cloth"
-                cloth_prefix = chr(65 + c_idx) # 'A'
+                cloth_prefix = chr(65 + c_idx) # 'A', 'B', 'C', ...
                 cloth_label = f"[{cloth_prefix}. {cloth_name}]"
 
                 if y_offset_units + mm_to_units(LINE_HEIGHT_MM * 2) > printer.height() - mm_to_units(MARGIN_MM):
@@ -514,8 +536,9 @@ class PriceListManager(QWidget):
                 c_font.setPointSizeF(TEXT_FONT_SIZE * 1.1) 
                 painter.setFont(c_font)
                 
-                left_indent = mm_to_units(20) + mm_to_units(MARGIN_MM) 
-                available_width = page_width_units - mm_to_units(20) 
+                # Left indent for the cloth label is the page margin + its own margin
+                left_indent = LEFT_PAGE_MARGIN_UNITS + mm_to_units(CLOTH_INDENT_MM)
+                available_width = printer.width() - left_indent - LEFT_PAGE_MARGIN_UNITS 
 
                 c_rect = painter.boundingRect(left_indent, y_offset_units, available_width, mm_to_units(LINE_HEIGHT_MM), 
                                               Qt.AlignLeft, cloth_label)
@@ -529,6 +552,7 @@ class PriceListManager(QWidget):
                     if isinstance(widget, TypeWidget):
                         type_widgets.append(widget)
 
+                # --- Draw Type Label (Aligned with the reduced indent) ---
                 for t_idx, t_widget in enumerate(type_widgets):
                     type_name = t_widget.type_edit.text() or "Untitled Type"
                     type_label = f"{t_idx + 1}) {type_name}" 
@@ -544,8 +568,9 @@ class PriceListManager(QWidget):
                     t_font.setPointSizeF(TEXT_FONT_SIZE * 1.0) 
                     painter.setFont(t_font)
                     
-                    left_indent = mm_to_units(25) + mm_to_units(MARGIN_MM)
-                    available_width = page_width_units - mm_to_units(25)
+                    # Left indent for the type label is the page margin + its own margin
+                    left_indent = LEFT_PAGE_MARGIN_UNITS + mm_to_units(TYPE_INDENT_MM)
+                    available_width = printer.width() - left_indent - LEFT_PAGE_MARGIN_UNITS
                     
                     t_rect = painter.boundingRect(left_indent, y_offset_units, available_width, mm_to_units(LINE_HEIGHT_MM), 
                                                   Qt.AlignLeft, type_label)
@@ -556,16 +581,12 @@ class PriceListManager(QWidget):
                     y_offset_units += mm_to_units(LINE_HEIGHT_MM * 0.3)
                     
                     
-                    table_indent_mm = 25
-                    table_indent_units = mm_to_units(table_indent_mm) + mm_to_units(MARGIN_MM) 
+                    # --- Draw Table (Aligned with the reduced indent) ---
+                    table_indent_units = LEFT_PAGE_MARGIN_UNITS + mm_to_units(TABLE_INDENT_MM)
 
-                    effective_drawing_width_units = page_width_units - mm_to_units(table_indent_mm)
-
-                    max_data_cols_fit = (effective_drawing_width_units - mm_to_units(FIXED_HEADER_COL_MM)) // mm_to_units(FIXED_DATA_COL_MM)
-                    MAX_COLS_PER_LINE = max(1, int(max_data_cols_fit))
-                    
                     total_columns = t_widget.table.columnCount()
                     
+                    # This loop enforces the 13 data columns + 1 header = 14 total column per row.
                     for start_col in range(0, total_columns, MAX_COLS_PER_LINE):
                         end_col = min(start_col + MAX_COLS_PER_LINE, total_columns)
                         
@@ -576,10 +597,11 @@ class PriceListManager(QWidget):
                             y_offset_units = mm_to_units(MARGIN_MM)
                             
                         painter.save()
+                        # Move the painter's origin to the left edge of the table drawing area
                         painter.translate(table_indent_units, 0) 
                         
                         y_offset_units = self.draw_type_table(
-                            painter, t_widget, effective_drawing_width_units, y_offset_units, 
+                            painter, t_widget, required_content_width_units, y_offset_units, 
                             mm_to_units, LINE_HEIGHT_MM, TABLE_HEADER_COLOR,
                             start_col, end_col, printer
                         )
