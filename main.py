@@ -16,7 +16,7 @@ class TypeWidget(QWidget):
     def __init__(self, sizes, parent=None):
         super().__init__(parent)
         self.sizes = list(sizes) 
-        self.base_col_width = 60 
+        self.base_col_width = 100 
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
@@ -32,7 +32,7 @@ class TypeWidget(QWidget):
 
         self.type_edit = QLineEdit()
         self.type_edit.setPlaceholderText("Type Name")
-        self.type_edit.textChanged.connect(self.modification_started.emit) # Emit signal on text change
+        self.type_edit.textChanged.connect(self.modification_started.emit) 
 
         self.delete_btn = QToolButton()
         self.delete_btn.setIcon(QIcon("media/delete.png"))
@@ -56,7 +56,7 @@ class TypeWidget(QWidget):
         self.table.verticalHeader().setDefaultSectionSize(30)
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.table.setFixedHeight(self.table.verticalHeader().length() + self.table.horizontalHeader().height() + self.table.frameWidth() * 2)
-        self.table.itemChanged.connect(lambda: self.modification_started.emit()) # Emit signal on cell change
+        self.table.itemChanged.connect(lambda: self.modification_started.emit()) 
 
         for col, size in enumerate(self.sizes):
             size_item = QTableWidgetItem(str(size))
@@ -165,7 +165,7 @@ class ClothWidget(QWidget):
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("Cloth name")
         self.name_edit.setFixedWidth(360) 
-        self.name_edit.textChanged.connect(self.modification_started.emit) # Emit signal on text change
+        self.name_edit.textChanged.connect(self.modification_started.emit) 
 
         self.add_type_btn = QPushButton("✚ Add Type")
         self.add_type_btn.setObjectName("add_type_btn")
@@ -203,7 +203,7 @@ class ClothWidget(QWidget):
         self.modification_started.emit()
         type_widget = TypeWidget(self.sizes, parent=self)
         self.type_layout.addWidget(type_widget)
-        type_widget.modification_started.connect(self.modification_started.emit) # Propagate the signal
+        type_widget.modification_started.connect(self.modification_started.emit)
         if not self.toggle_btn.isChecked():
             self.toggle_btn.setChecked(True)
             self.toggle_types()
@@ -283,7 +283,7 @@ class PriceListWidget(QWidget):
         self.modification_started.emit()
         cloth_widget = ClothWidget(self.sizes, parent=self)
         self.cloth_layout.addWidget(cloth_widget)
-        cloth_widget.modification_started.connect(self.modification_started.emit) # Propagate the signal up
+        cloth_widget.modification_started.connect(self.modification_started.emit) 
         if not self.toggle_btn.isChecked():
             self.toggle_btn.setChecked(True)
             self.toggle_content()
@@ -309,7 +309,6 @@ class PriceListManager(QWidget):
         self.buttons = {}
 
         self.main_layout.addWidget(self.main_toolbar())
-        #self.main_toolbar()
         self.buttons['new_btn'].clicked.connect(self.add_new_price_list)
         self.buttons['print_btn'].clicked.connect(self.show_print_preview)
         self.buttons['delete_btn'].clicked.connect(self.delete_selected_price_list)
@@ -337,7 +336,7 @@ class PriceListManager(QWidget):
         btn_layout.addStretch()
         self.main_layout.addLayout(btn_layout)
 
-        self.sizes = [20, 22, 24, 26, 28, 30]
+        self.sizes = [20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44]
 
         self.current_price_list = None
         self.save_btn.clicked.connect(self.exit_edit_mode)
@@ -353,7 +352,7 @@ class PriceListManager(QWidget):
 
     def to_roman(self, n):
         """Converts an integer to a Roman numeral string."""
-        if not 0 < n < 40: # Limiting for practicality
+        if not 0 < n < 40: 
             return str(n)
         
         roman_map = {1: 'I', 4: 'IV', 5: 'V', 9: 'IX', 10: 'X'}
@@ -366,27 +365,18 @@ class PriceListManager(QWidget):
                 n -= value
         return result
     
-    def draw_type_table(self, painter, type_widget, page_width, start_y, mm_to_units, line_height_mm, header_color, start_col_index, end_col_index):
-        """
-        Draws a segment of the type table, always including the vertical headers.
-        """
+    def draw_type_table(self, painter, type_widget, page_width, start_y, mm_to_units, line_height_mm, header_color, start_col_index, end_col_index, printer):
         
         table = type_widget.table
         
-        # Calculate column count for this segment
         segment_col_count = end_col_index - start_col_index
         if segment_col_count <= 0:
             return start_y
 
-        # Define a fixed width for the vertical header column
-        # I'll use a portion of the table width for the vertical header
-        HEADER_COL_WIDTH = mm_to_units(15) # Example: 15mm width for 'Size'/'Rate' column
+        HEADER_COL_WIDTH = mm_to_units(15) 
+        COLUMN_MM_WIDTH = 11.5
         
-        # Available width for the data columns
-        data_width = page_width - HEADER_COL_WIDTH
-        
-        # Calculate col_width based on the number of data columns in this segment
-        col_width = data_width / segment_col_count
+        precise_col_width = (COLUMN_MM_WIDTH) * printer.width() / printer.pageRect(QPrinter.Millimeter).width()
         row_height = mm_to_units(line_height_mm)
 
         current_y = start_y
@@ -398,7 +388,6 @@ class PriceListManager(QWidget):
         table_font.setWeight(QFont.Normal) 
         painter.setFont(table_font)
         
-        # === Draw Vertical Headers (Always Draw) ===
         vertical_header_width = HEADER_COL_WIDTH
         
         painter.setBrush(header_color)
@@ -406,65 +395,52 @@ class PriceListManager(QWidget):
         
         painter.setPen(Qt.black)
         
-        # Draw "Size"
         painter.drawText(QRect(0, current_y, vertical_header_width, row_height), 
                           Qt.AlignCenter, "Size")
-        # Draw "Rate"
         painter.drawText(QRect(0, current_y + row_height, vertical_header_width, row_height), 
                           Qt.AlignCenter, "Rate")
 
-        # === Draw Horizontal Headers (Size row) ===
         for i in range(segment_col_count):
             col = start_col_index + i
-            # Data columns start after the vertical header
-            x_pos = vertical_header_width + col_width * i
+            x_pos_float = vertical_header_width + precise_col_width * i
+
+            x_pos = int(x_pos_float) 
+            col_w = int(precise_col_width)
             
             size_item = table.item(0, col)
             text = size_item.text() if size_item else ""
             
             painter.setBrush(header_color)
-            painter.drawRect(int(x_pos), int(current_y), int(col_width), int(row_height))
+            painter.drawRect(x_pos, int(current_y), col_w, int(row_height))
             
-            painter.drawText(QRect(int(x_pos), current_y, int(col_width), row_height), 
+            painter.drawText(QRect(x_pos, current_y, col_w, row_height), 
                               Qt.AlignCenter, text)
         
-        current_y += row_height
-        
-        # === Draw Data Row (Rate row) ===
-        for i in range(segment_col_count):
-            col = start_col_index + i
-            x_pos = vertical_header_width + col_width * i
-            
             rate_item = table.item(1, col)
             text = rate_item.text() if rate_item else ""
-            
             painter.setBrush(Qt.white)
-            painter.drawRect(int(x_pos), int(current_y), int(col_width), int(row_height))
-            
-            painter.drawText(QRect(int(x_pos), current_y, int(col_width), row_height), 
+            painter.drawRect(int(x_pos), int(current_y + row_height), col_w, int(row_height))
+            painter.drawText(QRect(int(x_pos), current_y + row_height, col_w, row_height), 
                               Qt.AlignCenter, text)
 
-        current_y += row_height
+        current_y += row_height * 2
         
-        # === Draw Border Lines ===
         painter.setBrush(Qt.NoBrush)
         painter.setPen(Qt.black)
         
-        # Total width of the table segment (Vertical Header + Data Columns)
-        table_segment_width = int(col_width * segment_col_count) + vertical_header_width
+        precise_col_width = (COLUMN_MM_WIDTH) * printer.width() / printer.pageRect(QPrinter.Millimeter).width()
+        table_segment_width_float = precise_col_width * segment_col_count + vertical_header_width
         
-        # Outer rectangle for the segment
+        table_segment_width = int(table_segment_width_float)
+        
         painter.drawRect(0, start_y, table_segment_width, current_y - start_y)
         
-        # Vertical lines (for the Rate/Size separation and internal columns)
         for col_idx in range(segment_col_count + 1):
-            x_pos = vertical_header_width + col_width * col_idx
-            painter.drawLine(int(x_pos), start_y, int(x_pos), current_y)
+            x_pos = vertical_header_width + int(precise_col_width * col_idx) 
+            painter.drawLine(x_pos, start_y, x_pos, current_y)
         
-        # Vertical line for the start of the table
         painter.drawLine(0, start_y, 0, current_y)
 
-        # Horizontal lines (separating header from data)
         painter.drawLine(0, start_y + row_height, table_segment_width, start_y + row_height)
         
         painter.restore()
@@ -477,7 +453,8 @@ class PriceListManager(QWidget):
         LINE_HEIGHT_MM = 7
         TEXT_FONT_SIZE = 10
         TABLE_HEADER_COLOR = Qt.lightGray
-        MAX_COLS_PER_LINE = 14  # <-- New constant for maximum columns per printed line
+        FIXED_HEADER_COL_MM = 15
+        FIXED_DATA_COL_MM = 11.5
         
         def mm_to_units(mm):
             return int(mm * printer.width() / printer.pageRect(QPrinter.Millimeter).width())
@@ -493,13 +470,12 @@ class PriceListManager(QWidget):
             if isinstance(widget, PriceListWidget):
                 price_list_widgets.append(widget)
 
-        page_width = printer.width() - mm_to_units(MARGIN_MM * 2) # Page width excluding margins
+        page_width_units = printer.width() - mm_to_units(MARGIN_MM * 2) 
         
         for pl_idx, pl_widget in enumerate(price_list_widgets):
             pl_name = pl_widget.name_edit.text() or "Untitled Price List"
             pl_label = f"PRICE LIST-({pl_idx + 1}) {pl_name}"
             
-            # Check for page break for Price List Header
             if y_offset_units + mm_to_units(LINE_HEIGHT_MM * 2) > printer.height() - mm_to_units(MARGIN_MM):
                 printer.newPage()
                 y_offset_units = mm_to_units(MARGIN_MM)
@@ -510,8 +486,7 @@ class PriceListManager(QWidget):
             pl_font.setPointSizeF(TEXT_FONT_SIZE * 1.2) 
             painter.setFont(pl_font)
             
-            # Draw Price List Header
-            pl_rect = painter.boundingRect(mm_to_units(MARGIN_MM), y_offset_units, page_width, mm_to_units(LINE_HEIGHT_MM * 1.5), 
+            pl_rect = painter.boundingRect(mm_to_units(MARGIN_MM), y_offset_units, page_width_units, mm_to_units(LINE_HEIGHT_MM * 1.5), 
                                           Qt.AlignCenter, pl_label)
             painter.drawText(pl_rect, Qt.AlignCenter, pl_label)
             y_offset_units += pl_rect.height() + mm_to_units(LINE_HEIGHT_MM * 0.5)
@@ -528,7 +503,6 @@ class PriceListManager(QWidget):
                 cloth_prefix = chr(65 + c_idx) # 'A'
                 cloth_label = f"[{cloth_prefix}. {cloth_name}]"
 
-                # Check for page break for Cloth Header
                 if y_offset_units + mm_to_units(LINE_HEIGHT_MM * 2) > printer.height() - mm_to_units(MARGIN_MM):
                     printer.newPage()
                     y_offset_units = mm_to_units(MARGIN_MM)
@@ -540,10 +514,9 @@ class PriceListManager(QWidget):
                 c_font.setPointSizeF(TEXT_FONT_SIZE * 1.1) 
                 painter.setFont(c_font)
                 
-                left_indent = mm_to_units(20) + mm_to_units(MARGIN_MM) # Margin + small indent
-                available_width = page_width - mm_to_units(20) # Total page width - left indent
+                left_indent = mm_to_units(20) + mm_to_units(MARGIN_MM) 
+                available_width = page_width_units - mm_to_units(20) 
 
-                # Draw Cloth Header
                 c_rect = painter.boundingRect(left_indent, y_offset_units, available_width, mm_to_units(LINE_HEIGHT_MM), 
                                               Qt.AlignLeft, cloth_label)
                 painter.drawText(c_rect, Qt.AlignLeft, cloth_label)
@@ -560,7 +533,6 @@ class PriceListManager(QWidget):
                     type_name = t_widget.type_edit.text() or "Untitled Type"
                     type_label = f"{t_idx + 1}) {type_name}" 
                     
-                    # The table is drawn in segments, so we only check for text space here
                     if y_offset_units + mm_to_units(LINE_HEIGHT_MM) > printer.height() - mm_to_units(MARGIN_MM):
                         printer.newPage()
                         y_offset_units = mm_to_units(MARGIN_MM)
@@ -572,10 +544,9 @@ class PriceListManager(QWidget):
                     t_font.setPointSizeF(TEXT_FONT_SIZE * 1.0) 
                     painter.setFont(t_font)
                     
-                    left_indent = mm_to_units(25) + mm_to_units(MARGIN_MM) # Margin + slightly larger indent
-                    available_width = page_width - mm_to_units(25)
+                    left_indent = mm_to_units(25) + mm_to_units(MARGIN_MM)
+                    available_width = page_width_units - mm_to_units(25)
                     
-                    # Draw Type Header
                     t_rect = painter.boundingRect(left_indent, y_offset_units, available_width, mm_to_units(LINE_HEIGHT_MM), 
                                                   Qt.AlignLeft, type_label)
                     painter.drawText(t_rect, Qt.AlignLeft, type_label)
@@ -584,17 +555,20 @@ class PriceListManager(QWidget):
                     
                     y_offset_units += mm_to_units(LINE_HEIGHT_MM * 0.3)
                     
-                    # --- Table Wrapping Logic ---
-                    table_indent = mm_to_units(25) + mm_to_units(MARGIN_MM)
-                    table_width = page_width - mm_to_units(25) # The space for the table content
+                    
+                    table_indent_mm = 25
+                    table_indent_units = mm_to_units(table_indent_mm) + mm_to_units(MARGIN_MM) 
+
+                    effective_drawing_width_units = page_width_units - mm_to_units(table_indent_mm)
+
+                    max_data_cols_fit = (effective_drawing_width_units - mm_to_units(FIXED_HEADER_COL_MM)) // mm_to_units(FIXED_DATA_COL_MM)
+                    MAX_COLS_PER_LINE = max(1, int(max_data_cols_fit))
                     
                     total_columns = t_widget.table.columnCount()
                     
                     for start_col in range(0, total_columns, MAX_COLS_PER_LINE):
                         end_col = min(start_col + MAX_COLS_PER_LINE, total_columns)
-                        #is_first_segment = (start_col == 0)
                         
-                        # Calculate required height for this segment (2 rows) and check page break
                         required_table_height = mm_to_units(LINE_HEIGHT_MM * 2) + mm_to_units(LINE_HEIGHT_MM * 0.3)
                         
                         if y_offset_units + required_table_height > printer.height() - mm_to_units(MARGIN_MM):
@@ -602,17 +576,17 @@ class PriceListManager(QWidget):
                             y_offset_units = mm_to_units(MARGIN_MM)
                             
                         painter.save()
-                        painter.translate(table_indent, 0) # Apply translation (left margin)
+                        painter.translate(table_indent_units, 0) 
                         
                         y_offset_units = self.draw_type_table(
-                            painter, t_widget, table_width, y_offset_units, 
+                            painter, t_widget, effective_drawing_width_units, y_offset_units, 
                             mm_to_units, LINE_HEIGHT_MM, TABLE_HEADER_COLOR,
-                            start_col, end_col
+                            start_col, end_col, printer
                         )
                         
                         painter.restore() 
                         
-                        y_offset_units += mm_to_units(LINE_HEIGHT_MM * 0.3) # Small space between wrapped tables
+                        y_offset_units += mm_to_units(LINE_HEIGHT_MM * 0.3)
 
     def add_new_price_list(self):
         price_list_widget = PriceListWidget(self.sizes, parent=self)
