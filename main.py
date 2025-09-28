@@ -10,9 +10,9 @@ from PyQt5.QtGui import QIcon, QPainter, QFont, QPixmap
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QRect, QDate
 from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog, QPrintDialog
 
-LOGO_FILE = "media/logo.png" # <--- Update this path!
-LOGO_WIDTH_MM = 45 # Approx. 30mm width
-LOGO_HEIGHT_MM = 35 # Approx. 15mm height
+LOGO_FILE = "media/logo.png" 
+LOGO_WIDTH_MM = 45 
+LOGO_HEIGHT_MM = 35 
 
 class TypeWidget(QWidget):
     modification_started = pyqtSignal()
@@ -564,12 +564,15 @@ class PriceListManager(QWidget):
         TABLE_HEADER_COLOR = Qt.lightGray
         FIXED_HEADER_COL_MM = 15
         FIXED_DATA_COL_MM = 11.5
-        
+
         # --- FIX 1: Enforce Strict 14 Columns (1 Header + 13 Data Columns) ---
-        MAX_COLS_PER_LINE = 13 
+        MAX_COLS_PER_LINE = 13
         
         def mm_to_units(mm):
             return int(mm * printer.width() / printer.pageRect(QPrinter.Millimeter).width())
+        
+        # Set the initial Y offset (top margin)
+        y_offset_units = mm_to_units(MARGIN_MM) 
 
         # --- FIX 2: Reduce Indentation for Left Alignment ---
         
@@ -608,6 +611,19 @@ class PriceListManager(QWidget):
         for pl_idx, pl_widget in enumerate(price_list_widgets):
             pl_name = pl_widget.name_edit.text() or "Untitled Price List"
             pl_label = f"PRICE LIST-({pl_idx + 1}) {pl_name}"
+            if pl_idx > 0:
+                printer.newPage()
+                # Redraw header on the new page, resetting y_offset_units to the header's return value
+                y_offset_units = self.draw_page_header(
+                    painter, printer, mm_to_units, TEXT_FONT_SIZE, MARGIN_MM, LINE_HEIGHT_MM
+                )
+
+            pl_name = pl_widget.name_edit.text() or "Untitled Price List"
+            pl_label = f"PRICE LIST-({pl_idx + 1}) {pl_name}"
+            
+            # The original page check for the Price List Title is now redundant 
+            # for pl_idx > 0, but is kept for pl_idx == 0 or if the previous content
+            # was extremely long right up to the title line's start.
             
             if y_offset_units + mm_to_units(LINE_HEIGHT_MM * 2) > printer.height() - mm_to_units(MARGIN_MM):
                 printer.newPage()
