@@ -6,9 +6,13 @@ from PyQt5.QtWidgets import (
     QToolButton, QHeaderView, QTableWidget,
     QInputDialog, QMessageBox
 )
-from PyQt5.QtGui import QIcon, QPainter, QFont
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QRect
+from PyQt5.QtGui import QIcon, QPainter, QFont, QPixmap
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QRect, QDate
 from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog, QPrintDialog
+
+LOGO_FILE = "media/logo.png" # <--- Update this path!
+LOGO_WIDTH_MM = 45 # Approx. 30mm width
+LOGO_HEIGHT_MM = 35 # Approx. 15mm height
 
 class TypeWidget(QWidget):
     modification_started = pyqtSignal()
@@ -445,6 +449,111 @@ class PriceListManager(QWidget):
         
         painter.restore()
         return current_y
+    
+    def draw_page_header(self, painter, printer, mm_to_units, TEXT_FONT_SIZE, MARGIN_MM, LINE_HEIGHT_MM):
+        page_width = printer.width() - mm_to_units(MARGIN_MM * 2)
+        start_x = mm_to_units(MARGIN_MM)
+        start_y = mm_to_units(MARGIN_MM)
+
+        # Calculate the Y-position for the Company Name text (This defines the main top line)
+        company_name_height_units = mm_to_units(LINE_HEIGHT_MM * 2)
+        name_rect_start_y = start_y
+
+        # --- Company Name (SHRI SHANKAR GARMENT) - Largest and Boldest ---
+        painter.save()
+        font_name = QFont("Arial", int(TEXT_FONT_SIZE * 1.8))
+        font_name.setWeight(QFont.Black)
+        painter.setFont(font_name)
+        
+        name_label = "SHRI SHANKAR GARMENT"
+        
+        # 1. FIX HORIZONTAL SHIFT: Increase the reserved space to push the text further right.
+        # Increase the buffer from 3mm to 5mm for better separation.
+        logo_reserved_space = mm_to_units(LOGO_WIDTH_MM) + mm_to_units(5) 
+        
+        # Text Rect X starts after the margin + half of the logo space (to bias the center to the right)
+        # The 'S' should be fully visible now.
+        text_rect_start_x = start_x + (logo_reserved_space / 2) 
+        
+        # The text area is the full page width minus the reserved logo space
+        text_rect_width = page_width - logo_reserved_space 
+        
+        name_rect = painter.boundingRect(int(text_rect_start_x), name_rect_start_y, int(text_rect_width), company_name_height_units, 
+                                        Qt.AlignHCenter | Qt.AlignTop, name_label)
+        painter.drawText(name_rect, Qt.AlignHCenter | Qt.AlignTop, name_label)
+        current_y = name_rect.bottom()
+        painter.restore()
+
+        # --- 2. Draw LOGO on the Left ---
+        logo_pixmap = QPixmap(LOGO_FILE)
+        if not logo_pixmap.isNull():
+            logo_width_units = mm_to_units(LOGO_WIDTH_MM)
+            logo_height_units = mm_to_units(LOGO_HEIGHT_MM)
+            
+            # Calculate the logo's vertical center based on the Company Name's bounding box.
+            logo_y_center = name_rect.top() + (name_rect.height() / 2)
+            logo_y = logo_y_center - (logo_height_units / 2)
+            
+            # FIX VERTICAL ALIGNMENT: Increase the downward nudge (e.g., from 1mm to 2mm)
+            # This will move the logo slightly down for perfect visual centering.
+            logo_y += mm_to_units(2) 
+            
+            painter.drawPixmap(start_x, int(logo_y), logo_width_units, logo_height_units, logo_pixmap)
+        painter.save()
+        font_subtitle = QFont("Arial", int(TEXT_FONT_SIZE * 0.9))
+        font_subtitle.setBold(True)
+        painter.setFont(font_subtitle)
+        
+        subtitle_label = "Manufacture & Suppliers of Sports Uniforms"
+        # Keep centered on the full page width
+        subtitle_rect = painter.boundingRect(start_x, current_y, page_width, mm_to_units(LINE_HEIGHT_MM), 
+                                            Qt.AlignHCenter | Qt.AlignTop, subtitle_label)
+        painter.drawText(subtitle_rect, Qt.AlignHCenter | Qt.AlignTop, subtitle_label)
+        current_y = subtitle_rect.bottom()
+        painter.restore()
+        
+        # --- Address/Contact Info (Centered) ---
+        painter.save()
+        font_contact = QFont("Arial", int(TEXT_FONT_SIZE * 0.8))
+        painter.setFont(font_contact)
+        
+        contact_info = [
+            "C27/B, Nagnath Laghu Udyog Society, A.Kalkot Road, M.I.D.C.,",
+            "Solapur 413 006. E-mail : shrishankargarment555@gmail.com"
+        ]
+        
+        full_width_for_center = page_width 
+        contact_block_start_x = start_x 
+        
+        for line in contact_info:
+            contact_rect = painter.boundingRect(contact_block_start_x, current_y, full_width_for_center, mm_to_units(LINE_HEIGHT_MM * 0.8), 
+                                                Qt.AlignHCenter | Qt.AlignTop, line)
+            
+            painter.drawText(contact_rect, Qt.AlignHCenter | Qt.AlignTop, line)
+            current_y = contact_rect.bottom()
+            
+        # --- Phone/Date (Right Aligned) ---
+        
+        phone_date_info = [
+            "✆ 9021236858",
+            "✆ 9665466052",
+            f"Date : {QDate.currentDate().toString('dd/MM/yyyy')}"
+        ]
+        
+        right_align_x = int(start_x + page_width * 0.65)
+        right_align_width = int(page_width * 0.35)
+        right_y = current_y - (len(contact_info) * mm_to_units(LINE_HEIGHT_MM * 0.8))
+        
+        for line in phone_date_info:
+            phone_rect = painter.boundingRect(right_align_x, right_y, right_align_width, mm_to_units(LINE_HEIGHT_MM * 0.8), 
+                                            Qt.AlignRight | Qt.AlignTop, line)
+            painter.drawText(phone_rect, Qt.AlignRight | Qt.AlignTop, line)
+            right_y = phone_rect.bottom()
+            
+        painter.restore()
+
+        # Final Y position
+        return current_y + mm_to_units(LINE_HEIGHT_MM * 1.5)
 
     def paint_price_lists(self, printer):
         painter = QPainter(printer)
@@ -483,6 +592,11 @@ class PriceListManager(QWidget):
         
         painter.setFont(painter.font()) 
         painter.font().setPointSizeF(TEXT_FONT_SIZE)
+
+        # --- INITIAL HEADER DRAWING ---
+        y_offset_units = self.draw_page_header(
+            painter, printer, mm_to_units, TEXT_FONT_SIZE, MARGIN_MM, LINE_HEIGHT_MM
+        )
         
         price_list_widgets = []
         for i in range(self.price_list_layout.count() - 1):
@@ -497,7 +611,9 @@ class PriceListManager(QWidget):
             
             if y_offset_units + mm_to_units(LINE_HEIGHT_MM * 2) > printer.height() - mm_to_units(MARGIN_MM):
                 printer.newPage()
-                y_offset_units = mm_to_units(MARGIN_MM)
+                y_offset_units = self.draw_page_header(
+                    painter, printer, mm_to_units, TEXT_FONT_SIZE, MARGIN_MM, LINE_HEIGHT_MM
+                )
 
             pl_font = QFont(painter.font()) 
             pl_font.setBold(True)
@@ -527,7 +643,9 @@ class PriceListManager(QWidget):
 
                 if y_offset_units + mm_to_units(LINE_HEIGHT_MM * 2) > printer.height() - mm_to_units(MARGIN_MM):
                     printer.newPage()
-                    y_offset_units = mm_to_units(MARGIN_MM)
+                    y_offset_units = self.draw_page_header(
+                        painter, printer, mm_to_units, TEXT_FONT_SIZE, MARGIN_MM, LINE_HEIGHT_MM
+                    )
                     
                 painter.save()
                 c_font = QFont(painter.font())
@@ -556,10 +674,12 @@ class PriceListManager(QWidget):
                 for t_idx, t_widget in enumerate(type_widgets):
                     type_name = t_widget.type_edit.text() or "Untitled Type"
                     type_label = f"{t_idx + 1}) {type_name}" 
-                    
-                    if y_offset_units + mm_to_units(LINE_HEIGHT_MM) > printer.height() - mm_to_units(MARGIN_MM):
+                    table_height_mm = LINE_HEIGHT_MM * 3 
+                    if y_offset_units + mm_to_units(LINE_HEIGHT_MM) + mm_to_units(table_height_mm) > printer.height() - mm_to_units(MARGIN_MM):
                         printer.newPage()
-                        y_offset_units = mm_to_units(MARGIN_MM)
+                        y_offset_units = self.draw_page_header(
+                            painter, printer, mm_to_units, TEXT_FONT_SIZE, MARGIN_MM, LINE_HEIGHT_MM
+                        )
 
                     painter.save()
                     t_font = QFont(painter.font())
