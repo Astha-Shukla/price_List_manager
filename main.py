@@ -222,7 +222,7 @@ class ClothWidget(QWidget):
     def set_readonly_state(self, readonly=True):
         self.name_edit.setReadOnly(readonly)
         self.add_type_btn.setEnabled(not readonly)
-        self.delete_btn.setEnabled(not readonly)  # disable delete when read-only
+        self.delete_btn.setEnabled(not readonly)  
         for i in range(self.type_layout.count()):
             type_widget = self.type_layout.itemAt(i).widget()
             if type_widget:
@@ -337,19 +337,37 @@ class PriceListManager(QWidget):
         self.buttons = {}
 
         self.main_layout.addWidget(self.main_toolbar())
-        # --- Add Date Field Row ---
-        date_layout = QHBoxLayout()
+        # Price List Code and Date Field Row
+        row_layout = QHBoxLayout()
+
+        row_font = QFont()
+        row_font.setPointSize(11)
+
+        # Price List Code
+        self.code_label = QLabel("Price List Code:")
+        self.code_label.setFont(row_font)
+        self.code_edit = QLineEdit()
+        self.code_edit.setFont(row_font)
+        self.code_edit.setFixedWidth(150)
+        self.code_edit.setPlaceholderText("Enter code")
+
+        # Date Field
         self.date_label = QLabel("Date:")
+        self.date_label.setFont(row_font)
         self.date_edit = QDateEdit()
-        self.date_edit.setCalendarPopup(True)  # allows calendar popup
-        self.date_edit.setDate(QDate.currentDate())  # default to today
+        self.date_edit.setFont(row_font)
+        self.date_edit.setCalendarPopup(True)
+        self.date_edit.setDate(QDate.currentDate())
         self.date_edit.setFixedWidth(150)
 
-        date_layout.addWidget(self.date_label)
-        date_layout.addWidget(self.date_edit)
-        date_layout.addStretch()
+        row_layout.addWidget(self.code_label)
+        row_layout.addWidget(self.code_edit)
+        row_layout.addSpacing(60)  #spacing between code and date
+        row_layout.addWidget(self.date_label)
+        row_layout.addWidget(self.date_edit)
+        row_layout.addStretch()
 
-        self.main_layout.addLayout(date_layout)
+        self.main_layout.addLayout(row_layout)
 
         self.buttons['new_btn'].clicked.connect(self.add_new_price_list)
         self.buttons['modify_btn'].clicked.connect(self.modify_selected_price_list)
@@ -499,7 +517,7 @@ class PriceListManager(QWidget):
         company_name_height_units = mm_to_units(LINE_HEIGHT_MM * 2)
         name_rect_start_y = start_y
 
-        # --- Company Name (SHRI SHANKAR GARMENT) - Largest and Boldest ---
+        # Company Name (SHRI SHANKAR GARMENT)
         painter.save()
         font_name = QFont("Arial", int(TEXT_FONT_SIZE * 1.8))
         font_name.setWeight(QFont.Black)
@@ -507,15 +525,11 @@ class PriceListManager(QWidget):
         
         name_label = "SHRI SHANKAR GARMENT"
         
-        # 1. FIX HORIZONTAL SHIFT: Increase the reserved space to push the text further right.
-        # Increase the buffer from 3mm to 5mm for better separation.
+        # FIX HORIZONTAL SHIFT: Increase the reserved space to push the text further right.
         logo_reserved_space = mm_to_units(LOGO_WIDTH_MM) + mm_to_units(5) 
         
-        # Text Rect X starts after the margin + half of the logo space (to bias the center to the right)
-        # The 'S' should be fully visible now.
         text_rect_start_x = start_x + (logo_reserved_space / 2) 
         
-        # The text area is the full page width minus the reserved logo space
         text_rect_width = page_width - logo_reserved_space 
         
         name_rect = painter.boundingRect(int(text_rect_start_x), name_rect_start_y, int(text_rect_width), company_name_height_units, 
@@ -524,7 +538,7 @@ class PriceListManager(QWidget):
         current_y = name_rect.bottom()
         painter.restore()
 
-        # --- 2. Draw LOGO on the Left ---
+        # Draw LOGO on the Left ---
         logo_pixmap = QPixmap(LOGO_FILE)
         if not logo_pixmap.isNull():
             logo_width_units = mm_to_units(LOGO_WIDTH_MM)
@@ -534,8 +548,6 @@ class PriceListManager(QWidget):
             logo_y_center = name_rect.top() + (name_rect.height() / 2)
             logo_y = logo_y_center - (logo_height_units / 2)
             
-            # FIX VERTICAL ALIGNMENT: Increase the downward nudge (e.g., from 1mm to 2mm)
-            # This will move the logo slightly down for perfect visual centering.
             logo_y += mm_to_units(2) 
             
             painter.drawPixmap(start_x, int(logo_y), logo_width_units, logo_height_units, logo_pixmap)
@@ -545,14 +557,13 @@ class PriceListManager(QWidget):
         painter.setFont(font_subtitle)
         
         subtitle_label = "Manufacture & Suppliers of Sports Uniforms"
-        # Keep centered on the full page width
         subtitle_rect = painter.boundingRect(start_x, current_y, page_width, mm_to_units(LINE_HEIGHT_MM), 
                                             Qt.AlignHCenter | Qt.AlignTop, subtitle_label)
         painter.drawText(subtitle_rect, Qt.AlignHCenter | Qt.AlignTop, subtitle_label)
         current_y = subtitle_rect.bottom()
         painter.restore()
         
-        # --- Address/Contact Info (Centered) ---
+        # Address/Contact Info (Centered)
         painter.save()
         font_contact = QFont("Arial", int(TEXT_FONT_SIZE * 0.8))
         painter.setFont(font_contact)
@@ -572,7 +583,7 @@ class PriceListManager(QWidget):
             painter.drawText(contact_rect, Qt.AlignHCenter | Qt.AlignTop, line)
             current_y = contact_rect.bottom()
             
-        # --- Phone/Date (Right Aligned) ---
+        # Phone/Date (Right Aligned)
         
         phone_date_info = [
             "✆ 9021236858",
@@ -592,7 +603,6 @@ class PriceListManager(QWidget):
             
         painter.restore()
 
-        # Final Y position
         return current_y + mm_to_units(LINE_HEIGHT_MM * 1.5)
 
     def paint_price_lists(self, printer):
@@ -605,38 +615,28 @@ class PriceListManager(QWidget):
         FIXED_HEADER_COL_MM = 15
         FIXED_DATA_COL_MM = 11.5
 
-        # --- FIX 1: Enforce Strict 14 Columns (1 Header + 13 Data Columns) ---
         MAX_COLS_PER_LINE = 13
         
         def mm_to_units(mm):
             return int(mm * printer.width() / printer.pageRect(QPrinter.Millimeter).width())
         
-        # Set the initial Y offset (top margin)
         y_offset_units = mm_to_units(MARGIN_MM) 
 
-        # --- FIX 2: Reduce Indentation for Left Alignment ---
-        
-        # Standard left margin for the whole page
         LEFT_PAGE_MARGIN_UNITS = mm_to_units(MARGIN_MM) 
         
-        # Indent for the Cloth label
         CLOTH_INDENT_MM = 5 
         
-        # Indent for the Type label and the Table itself (Relative to the Page Margin)
         TYPE_INDENT_MM = 10
         TABLE_INDENT_MM = TYPE_INDENT_MM
 
-        # Calculate the required width for the 14-column content for centering the title
         required_content_width_mm = FIXED_HEADER_COL_MM + (MAX_COLS_PER_LINE * FIXED_DATA_COL_MM)
         required_content_width_units = mm_to_units(required_content_width_mm)
         
-        # Set the initial Y offset (top margin)
         y_offset_units = mm_to_units(MARGIN_MM)
         
         painter.setFont(painter.font()) 
         painter.font().setPointSizeF(TEXT_FONT_SIZE)
 
-        # --- INITIAL HEADER DRAWING ---
         y_offset_units = self.draw_page_header(
             painter, printer, mm_to_units, TEXT_FONT_SIZE, MARGIN_MM, LINE_HEIGHT_MM
         )
@@ -647,23 +647,18 @@ class PriceListManager(QWidget):
             if isinstance(widget, PriceListWidget):
                 price_list_widgets.append(widget)
 
-        # --- Draw Price List Title (Centered on the print area) ---
+        # Draw Price List Title (Centered on the print)
         for pl_idx, pl_widget in enumerate(price_list_widgets):
             pl_name = pl_widget.name_edit.text() or "Untitled Price List"
             pl_label = f"PRICE LIST-({pl_idx + 1}) {pl_name}"
             if pl_idx > 0:
                 printer.newPage()
-                # Redraw header on the new page, resetting y_offset_units to the header's return value
                 y_offset_units = self.draw_page_header(
                     painter, printer, mm_to_units, TEXT_FONT_SIZE, MARGIN_MM, LINE_HEIGHT_MM
                 )
 
             pl_name = pl_widget.name_edit.text() or "Untitled Price List"
             pl_label = f"PRICE LIST-({pl_idx + 1}) {pl_name}"
-            
-            # The original page check for the Price List Title is now redundant 
-            # for pl_idx > 0, but is kept for pl_idx == 0 or if the previous content
-            # was extremely long right up to the title line's start.
             
             if y_offset_units + mm_to_units(LINE_HEIGHT_MM * 2) > printer.height() - mm_to_units(MARGIN_MM):
                 printer.newPage()
@@ -691,7 +686,7 @@ class PriceListManager(QWidget):
                 if isinstance(widget, ClothWidget):
                     cloth_widgets.append(widget)
 
-            # --- Draw Cloth Label (Aligned with the reduced indent) ---
+            # Draw Cloth Label (Aligned with the reduced indent)
             for c_idx, c_widget in enumerate(cloth_widgets):
                 cloth_name = c_widget.name_edit.text() or "Untitled Cloth"
                 cloth_prefix = chr(65 + c_idx) # 'A', 'B', 'C', ...
@@ -710,7 +705,6 @@ class PriceListManager(QWidget):
                 c_font.setPointSizeF(TEXT_FONT_SIZE * 1.1) 
                 painter.setFont(c_font)
                 
-                # Left indent for the cloth label is the page margin + its own margin
                 left_indent = LEFT_PAGE_MARGIN_UNITS + mm_to_units(CLOTH_INDENT_MM)
                 available_width = printer.width() - left_indent - LEFT_PAGE_MARGIN_UNITS 
 
@@ -726,7 +720,7 @@ class PriceListManager(QWidget):
                     if isinstance(widget, TypeWidget):
                         type_widgets.append(widget)
 
-                # --- Draw Type Label (Aligned with the reduced indent) ---
+                # Draw Type Label (Aligned with the reduced indent)
                 for t_idx, t_widget in enumerate(type_widgets):
                     type_name = t_widget.type_edit.text() or "Untitled Type"
                     type_label = f"{t_idx + 1}) {type_name}" 
@@ -744,7 +738,6 @@ class PriceListManager(QWidget):
                     t_font.setPointSizeF(TEXT_FONT_SIZE * 1.0) 
                     painter.setFont(t_font)
                     
-                    # Left indent for the type label is the page margin + its own margin
                     left_indent = LEFT_PAGE_MARGIN_UNITS + mm_to_units(TYPE_INDENT_MM)
                     available_width = printer.width() - left_indent - LEFT_PAGE_MARGIN_UNITS
                     
@@ -757,12 +750,11 @@ class PriceListManager(QWidget):
                     y_offset_units += mm_to_units(LINE_HEIGHT_MM * 0.3)
                     
                     
-                    # --- Draw Table (Aligned with the reduced indent) ---
+                    # Draw Table (Aligned with the reduced indent)
                     table_indent_units = LEFT_PAGE_MARGIN_UNITS + mm_to_units(TABLE_INDENT_MM)
 
                     total_columns = t_widget.table.columnCount()
                     
-                    # This loop enforces the 13 data columns + 1 header = 14 total column per row.
                     for start_col in range(0, total_columns, MAX_COLS_PER_LINE):
                         end_col = min(start_col + MAX_COLS_PER_LINE, total_columns)
                         
@@ -773,7 +765,6 @@ class PriceListManager(QWidget):
                             y_offset_units = mm_to_units(MARGIN_MM)
                             
                         painter.save()
-                        # Move the painter's origin to the left edge of the table drawing area
                         painter.translate(table_indent_units, 0) 
                         
                         y_offset_units = self.draw_type_table(
