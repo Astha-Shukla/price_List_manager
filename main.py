@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QScrollArea,
     QSizePolicy, QTableWidgetItem, 
     QToolButton, QHeaderView, QTableWidget,
-    QInputDialog, QMessageBox
+    QInputDialog, QMessageBox, QDateEdit
 )
 from PyQt5.QtGui import QIcon, QPainter, QFont, QPixmap
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QRect, QDate
@@ -313,6 +313,20 @@ class PriceListManager(QWidget):
         self.buttons = {}
 
         self.main_layout.addWidget(self.main_toolbar())
+        # --- Add Date Field Row ---
+        date_layout = QHBoxLayout()
+        self.date_label = QLabel("Date:")
+        self.date_edit = QDateEdit()
+        self.date_edit.setCalendarPopup(True)  # allows calendar popup
+        self.date_edit.setDate(QDate.currentDate())  # default to today
+        self.date_edit.setFixedWidth(150)
+
+        date_layout.addWidget(self.date_label)
+        date_layout.addWidget(self.date_edit)
+        date_layout.addStretch()
+
+        self.main_layout.addLayout(date_layout)
+
         self.buttons['new_btn'].clicked.connect(self.add_new_price_list)
         self.buttons['print_btn'].clicked.connect(self.show_print_preview)
         self.buttons['delete_btn'].clicked.connect(self.delete_selected_price_list)
