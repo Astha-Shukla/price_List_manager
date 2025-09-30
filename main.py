@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QScrollArea,
     QSizePolicy, QTableWidgetItem, 
     QToolButton, QHeaderView, QTableWidget,
-    QInputDialog, QMessageBox, QDateEdit
+    QInputDialog, QMessageBox, QDateEdit, QDialog
 )
 from PyQt5.QtGui import QIcon, QPainter, QFont, QPixmap
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QRect, QDate
@@ -324,6 +324,86 @@ class PriceListWidget(QWidget):
             self.setParent(None)
             self.deleteLater()
 
+class SearchPriceListDialog(QDialog):
+    price_list_selected = pyqtSignal(str, str, str) # date, code, name
+    def __init__(self, price_list_manager):
+        super().__init__()
+        self.setWindowTitle("Search Price List")
+        self.resize(700, 300)
+        self.price_list_manager = price_list_manager  # reference to main manager
+
+        layout = QVBoxLayout(self)
+
+        # Filters
+        filter_layout = QHBoxLayout()
+        filter_layout.addWidget(QLabel("Price List Code:"))
+        self.code_filter = QLineEdit()
+        filter_layout.addWidget(self.code_filter)
+
+        filter_layout.addWidget(QLabel("Price List Name:"))
+        self.name_filter = QLineEdit()
+        filter_layout.addWidget(self.name_filter)
+
+        layout.addLayout(filter_layout)
+
+        # Table
+        self.table = QTableWidget(0, 3)
+        self.table.setHorizontalHeaderLabels(["Date", "Code", "Name"])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(self.table)
+
+        # Close button
+        #btn_layout = QHBoxLayout()
+        #self.close_btn = QPushButton("Close")
+        #self.close_btn.clicked.connect(self.close)
+        #btn_layout.addStretch()
+        #btn_layout.addWidget(self.close_btn)
+        #layout.addLayout(btn_layout)
+
+        self.load_data()
+
+        # Connect filters
+        self.code_filter.textChanged.connect(self.filter_table)
+        self.name_filter.textChanged.connect(self.filter_table)
+        self.table.doubleClicked.connect(self.select_price_list) 
+
+
+    def load_data(self):
+        self.data = []
+        for i in range(self.price_list_manager.price_list_layout.count() - 1):
+            widget = self.price_list_manager.price_list_layout.itemAt(i).widget()
+            if widget:
+                self.data.append({
+                    "date": widget.date_edit.date().toString("yyyy-MM-dd") if hasattr(widget, "date_edit") else "", # Date is blank here
+                    "code": widget.code_edit.text() if hasattr(widget, "code_edit") else "", # Code is blank here
+                    "name": widget.name_edit.text()
+                })
+        self.filter_table()
+
+    def filter_table(self):
+        code_text = self.code_filter.text().lower()
+        name_text = self.name_filter.text().lower()
+
+        self.table.setRowCount(0)
+        for entry in self.data:
+            if code_text in entry["code"].lower() and name_text in entry["name"].lower():
+                row = self.table.rowCount()
+                self.table.insertRow(row)
+                self.table.setItem(row, 0, QTableWidgetItem(entry["date"]))
+                self.table.setItem(row, 1, QTableWidgetItem(entry["code"]))
+                self.table.setItem(row, 2, QTableWidgetItem(entry["name"]))
+
+    def select_price_list(self):
+        selected_row = self.table.currentRow()
+        if selected_row >= 0:
+            date = self.table.item(selected_row, 0).text()
+            code = self.table.item(selected_row, 1).text()
+            name = self.table.item(selected_row, 2).text()
+            
+            self.price_list_selected.emit(date, code, name)
+            
+            self.accept() 
+
 class PriceListManager(QWidget):
     selected = pyqtSignal(QWidget)
     modification_started = pyqtSignal()
@@ -372,6 +452,7 @@ class PriceListManager(QWidget):
         self.buttons['new_btn'].clicked.connect(self.add_new_price_list)
         self.buttons['modify_btn'].clicked.connect(self.modify_selected_price_list)
         self.readonly_mode = True
+        self.buttons['search_btn'].clicked.connect(self.open_search_dialog)
         self.buttons['print_btn'].clicked.connect(self.show_print_preview)
         self.buttons['delete_btn'].clicked.connect(self.delete_selected_price_list)
         self.buttons['exit_btn'].clicked.connect(self.close)
@@ -405,6 +486,21 @@ class PriceListManager(QWidget):
         self.undo_btn.clicked.connect(self.exit_edit_mode)
         self.set_toolbar_state(True)
 
+    def open_search_dialog(self):
+        dialog = SearchPriceListDialog(self)
+        
+        dialog.price_list_selected.connect(self.load_selected_price_list)
+        
+        dialog.exec_()
+    
+    def load_selected_price_list(self, date_str, code, name):
+        self.code_edit.setText(code)
+        selected_date = QDate.fromString(date_str, "yyyy-MM-dd")
+        if selected_date.isValid():
+            self.date_edit.setDate(selected_date)
+
+        print(f"Price List '{name}' (Code: {code}) loaded. Now loading its categories/types...")
+        
     def show_print_preview(self):
         printer = QPrinter()
         preview_dialog = QPrintPreviewDialog(printer, self)
