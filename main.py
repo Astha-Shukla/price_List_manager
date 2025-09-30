@@ -138,6 +138,13 @@ class TypeWidget(QWidget):
             self.table.removeColumn(last_col)
         self.table.setMinimumWidth(0)
         QTimer.singleShot(0, self.adjust_column_sizes)
+    
+    def set_readonly_state(self, readonly=True):
+        self.type_edit.setReadOnly(readonly)
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers if readonly else QTableWidget.AllEditTriggers)
+        self.add_size_btn.setEnabled(not readonly)
+        self.remove_size_btn.setEnabled(not readonly)
+        self.delete_btn.setEnabled(not readonly) 
 
     def delete_self(self):
         self.setParent(None)
@@ -211,6 +218,15 @@ class ClothWidget(QWidget):
         if not self.toggle_btn.isChecked():
             self.toggle_btn.setChecked(True)
             self.toggle_types()
+
+    def set_readonly_state(self, readonly=True):
+        self.name_edit.setReadOnly(readonly)
+        self.add_type_btn.setEnabled(not readonly)
+        self.delete_btn.setEnabled(not readonly)  # disable delete when read-only
+        for i in range(self.type_layout.count()):
+            type_widget = self.type_layout.itemAt(i).widget()
+            if type_widget:
+                type_widget.set_readonly_state(readonly)
 
     def delete_self(self):
         self.setParent(None)
@@ -292,6 +308,14 @@ class PriceListWidget(QWidget):
             self.toggle_btn.setChecked(True)
             self.toggle_content()
 
+    def set_readonly_state(self, readonly=True):
+        self.name_edit.setReadOnly(readonly)
+        self.add_cloth_btn.setEnabled(not readonly)
+        for i in range(self.cloth_layout.count()):
+            cloth_widget = self.cloth_layout.itemAt(i).widget()
+            if cloth_widget:
+                cloth_widget.set_readonly_state(readonly)
+
     def delete_self(self):
         reply = QMessageBox.question(self, 'Delete Price List', 
                                      f"Are you sure you want to delete '{self.name_edit.text()}'?",
@@ -328,6 +352,8 @@ class PriceListManager(QWidget):
         self.main_layout.addLayout(date_layout)
 
         self.buttons['new_btn'].clicked.connect(self.add_new_price_list)
+        self.buttons['modify_btn'].clicked.connect(self.modify_selected_price_list)
+        self.readonly_mode = True
         self.buttons['print_btn'].clicked.connect(self.show_print_preview)
         self.buttons['delete_btn'].clicked.connect(self.delete_selected_price_list)
         self.buttons['exit_btn'].clicked.connect(self.close)
@@ -807,6 +833,20 @@ class PriceListManager(QWidget):
         self.save_btn.setEnabled(True)
 
     def exit_edit_mode(self):
+        self.set_toolbar_state(True)
+
+    def modify_selected_price_list(self):
+        if self.current_price_list:
+            # Enable editing
+            self.current_price_list.set_readonly_state(False)
+            self.enter_edit_mode()
+            self.readonly_mode = False
+
+    def exit_edit_mode(self):
+        if self.current_price_list:
+            # Make all fields read-only after save
+            self.current_price_list.set_readonly_state(True)
+            self.readonly_mode = True
         self.set_toolbar_state(True)
 
     def create_btn(self, text, shortcut=None):
